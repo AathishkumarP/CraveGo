@@ -1,0 +1,16 @@
+# Compiled output
+bin/
+build/
+target/
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Secrets and local configuration
+.env
+db.properties
