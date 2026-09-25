@@ -12,9 +12,11 @@ public interface RestaurantDAO {
 
     List<Restaurant> getAllRestaurants();
 
-    List<Restaurant> getActiveRestaurants();
+    List<Restaurant> searchRestaurants(String searchText);
 
-    int updateRestaurant(Restaurant restaurant);
+    List<Restaurant> getRestaurantsByCuisine(String cuisineType);
 
-    int deleteRestaurant(int restaurantId);
+    boolean updateRestaurant(Restaurant restaurant);
+
+    boolean deleteRestaurant(int restaurantId);
 }

@@ -10,6 +10,7 @@ import com.cravego.daoimpl.RestaurantDAOImpl;
 import com.cravego.model.Menu;
 import com.cravego.model.Restaurant;
 
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -21,13 +22,18 @@ public class MenuServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
 
-    private MenuDAO menuDAO;
     private RestaurantDAO restaurantDAO;
 
+    private MenuDAO menuDAO;
+
     @Override
-    public void init() {
-        menuDAO = new MenuDAOImpl();
-        restaurantDAO = new RestaurantDAOImpl();
+    public void init() throws ServletException {
+
+        restaurantDAO =
+                new RestaurantDAOImpl();
+
+        menuDAO =
+                new MenuDAOImpl();
     }
 
     @Override
@@ -36,11 +42,17 @@ public class MenuServlet extends HttpServlet {
             HttpServletResponse response)
             throws ServletException, IOException {
 
-        String restaurantIdValue =
+        request.setCharacterEncoding("UTF-8");
+
+        response.setContentType(
+                "text/html; charset=UTF-8"
+        );
+
+        String restaurantIdParameter =
                 request.getParameter("restaurantId");
 
-        if (restaurantIdValue == null
-                || restaurantIdValue.trim().isEmpty()) {
+        if (restaurantIdParameter == null
+                || restaurantIdParameter.trim().isEmpty()) {
 
             response.sendRedirect(
                     request.getContextPath()
@@ -50,44 +62,14 @@ public class MenuServlet extends HttpServlet {
             return;
         }
 
+        int restaurantId;
+
         try {
 
-            int restaurantId =
-                    Integer.parseInt(restaurantIdValue);
-
-            Restaurant restaurant =
-                    restaurantDAO.getRestaurantById(
-                            restaurantId
+            restaurantId =
+                    Integer.parseInt(
+                        restaurantIdParameter.trim()
                     );
-
-            if (restaurant == null
-                    || !restaurant.isActive()) {
-
-                response.sendRedirect(
-                        request.getContextPath()
-                        + "/restaurants"
-                );
-
-                return;
-            }
-
-            List<Menu> menuItems =
-                    menuDAO.getAvailableMenuByRestaurantId(
-                            restaurantId
-                    );
-
-            request.setAttribute(
-                    "restaurant",
-                    restaurant
-            );
-
-            request.setAttribute(
-                    "menuItems",
-                    menuItems
-            );
-
-            request.getRequestDispatcher("/menu.jsp")
-                   .forward(request, response);
 
         } catch (NumberFormatException e) {
 
@@ -95,6 +77,65 @@ public class MenuServlet extends HttpServlet {
                     request.getContextPath()
                     + "/restaurants"
             );
+
+            return;
         }
+
+        if (restaurantId <= 0) {
+
+            response.sendRedirect(
+                    request.getContextPath()
+                    + "/restaurants"
+            );
+
+            return;
+        }
+
+        Restaurant restaurant =
+                restaurantDAO.getRestaurantById(
+                        restaurantId
+                );
+
+        if (restaurant == null) {
+
+            response.sendRedirect(
+                    request.getContextPath()
+                    + "/restaurants"
+            );
+
+            return;
+        }
+
+        List<Menu> menuItems =
+                menuDAO.getMenuByRestaurantId(
+                        restaurantId
+                );
+
+        request.setAttribute(
+                "restaurant",
+                restaurant
+        );
+
+        request.setAttribute(
+                "menuItems",
+                menuItems
+        );
+
+        request.setAttribute(
+                "menuItemCount",
+                menuItems == null
+                ? 0
+                : menuItems.size()
+        );
+
+        RequestDispatcher dispatcher =
+                request.getRequestDispatcher(
+                        "/menu.jsp"
+                );
+
+        dispatcher.forward(
+                request,
+                response
+        );
     }
 }
