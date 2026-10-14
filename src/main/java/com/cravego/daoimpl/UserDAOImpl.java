@@ -20,8 +20,7 @@ public class UserDAOImpl implements UserDAO {
           + "VALUES (?, ?, ?, ?, ?, ?)";
 
     private static final String GET_USER_BY_ID =
-            "SELECT * FROM users "
-          + "WHERE user_id = ?";
+            "SELECT * FROM users WHERE user_id = ?";
 
     private static final String GET_USER_BY_EMAIL =
             "SELECT * FROM users "
@@ -37,8 +36,7 @@ public class UserDAOImpl implements UserDAO {
           + "WHERE LOWER(email) = LOWER(?)";
 
     private static final String GET_ALL_USERS =
-            "SELECT * FROM users "
-          + "ORDER BY username ASC";
+            "SELECT * FROM users ORDER BY username ASC";
 
     private static final String UPDATE_USER =
             "UPDATE users SET "
@@ -50,71 +48,52 @@ public class UserDAOImpl implements UserDAO {
           + "role = ? "
           + "WHERE user_id = ?";
 
-    private static final String DELETE_USER =
-            "DELETE FROM users "
+    private static final String UPDATE_PROFILE =
+            "UPDATE users SET "
+          + "username = ?, "
+          + "email = ?, "
+          + "phone = ?, "
+          + "address = ? "
           + "WHERE user_id = ?";
+
+    private static final String CHANGE_PASSWORD =
+            "UPDATE users SET password = ? "
+          + "WHERE user_id = ? AND password = ?";
+
+    private static final String DELETE_USER =
+            "DELETE FROM users WHERE user_id = ?";
 
     @Override
     public int addUser(User user) {
 
-        int generatedUserId = 0;
+        if (user == null) {
+            return 0;
+        }
 
         try (
-            Connection connection =
-                    DBConnection.getConnection();
+            Connection connection = DBConnection.getConnection();
 
-            PreparedStatement preparedStatement =
+            PreparedStatement statement =
                     connection.prepareStatement(
-                        INSERT_USER,
-                        Statement.RETURN_GENERATED_KEYS
+                            INSERT_USER,
+                            Statement.RETURN_GENERATED_KEYS
                     )
         ) {
 
-            preparedStatement.setString(
-                    1,
-                    user.getUsername()
-            );
+            statement.setString(1, user.getUsername());
+            statement.setString(2, user.getPassword());
+            statement.setString(3, user.getEmail());
+            statement.setString(4, user.getPhone());
+            statement.setString(5, user.getAddress());
+            statement.setString(6, user.getRole());
 
-            preparedStatement.setString(
-                    2,
-                    user.getPassword()
-            );
-
-            preparedStatement.setString(
-                    3,
-                    user.getEmail()
-            );
-
-            preparedStatement.setString(
-                    4,
-                    user.getPhone()
-            );
-
-            preparedStatement.setString(
-                    5,
-                    user.getAddress()
-            );
-
-            preparedStatement.setString(
-                    6,
-                    user.getRole()
-            );
-
-            int affectedRows =
-                    preparedStatement.executeUpdate();
+            int affectedRows = statement.executeUpdate();
 
             if (affectedRows > 0) {
-
-                try (
-                    ResultSet resultSet =
-                            preparedStatement
-                                .getGeneratedKeys()
-                ) {
+                try (ResultSet resultSet = statement.getGeneratedKeys()) {
 
                     if (resultSet.next()) {
-
-                        generatedUserId =
-                                resultSet.getInt(1);
+                        return resultSet.getInt(1);
                     }
                 }
             }
@@ -123,38 +102,25 @@ public class UserDAOImpl implements UserDAO {
             e.printStackTrace();
         }
 
-        return generatedUserId;
+        return 0;
     }
 
     @Override
     public User getUserById(int userId) {
 
-        User user = null;
-
         try (
-            Connection connection =
-                    DBConnection.getConnection();
+            Connection connection = DBConnection.getConnection();
 
-            PreparedStatement preparedStatement =
-                    connection.prepareStatement(
-                            GET_USER_BY_ID
-                    )
+            PreparedStatement statement =
+                    connection.prepareStatement(GET_USER_BY_ID)
         ) {
 
-            preparedStatement.setInt(
-                    1,
-                    userId
-            );
+            statement.setInt(1, userId);
 
-            try (
-                ResultSet resultSet =
-                        preparedStatement.executeQuery()
-            ) {
+            try (ResultSet resultSet = statement.executeQuery()) {
 
                 if (resultSet.next()) {
-
-                    user =
-                            mapUser(resultSet);
+                    return mapUser(resultSet);
                 }
             }
 
@@ -162,44 +128,29 @@ public class UserDAOImpl implements UserDAO {
             e.printStackTrace();
         }
 
-        return user;
+        return null;
     }
 
     @Override
     public User getUserByEmail(String email) {
 
-        User user = null;
-
-        if (email == null
-                || email.trim().isEmpty()) {
-
+        if (email == null || email.trim().isEmpty()) {
             return null;
         }
 
         try (
-            Connection connection =
-                    DBConnection.getConnection();
+            Connection connection = DBConnection.getConnection();
 
-            PreparedStatement preparedStatement =
-                    connection.prepareStatement(
-                            GET_USER_BY_EMAIL
-                    )
+            PreparedStatement statement =
+                    connection.prepareStatement(GET_USER_BY_EMAIL)
         ) {
 
-            preparedStatement.setString(
-                    1,
-                    email.trim()
-            );
+            statement.setString(1, email.trim());
 
-            try (
-                ResultSet resultSet =
-                        preparedStatement.executeQuery()
-            ) {
+            try (ResultSet resultSet = statement.executeQuery()) {
 
                 if (resultSet.next()) {
-
-                    user =
-                            mapUser(resultSet);
+                    return mapUser(resultSet);
                 }
             }
 
@@ -207,15 +158,11 @@ public class UserDAOImpl implements UserDAO {
             e.printStackTrace();
         }
 
-        return user;
+        return null;
     }
 
     @Override
-    public User validateUser(
-            String email,
-            String password) {
-
-        User user = null;
+    public User validateUser(String email, String password) {
 
         if (email == null
                 || email.trim().isEmpty()
@@ -226,34 +173,19 @@ public class UserDAOImpl implements UserDAO {
         }
 
         try (
-            Connection connection =
-                    DBConnection.getConnection();
+            Connection connection = DBConnection.getConnection();
 
-            PreparedStatement preparedStatement =
-                    connection.prepareStatement(
-                            VALIDATE_USER
-                    )
+            PreparedStatement statement =
+                    connection.prepareStatement(VALIDATE_USER)
         ) {
 
-            preparedStatement.setString(
-                    1,
-                    email.trim()
-            );
+            statement.setString(1, email.trim());
+            statement.setString(2, password);
 
-            preparedStatement.setString(
-                    2,
-                    password
-            );
-
-            try (
-                ResultSet resultSet =
-                        preparedStatement.executeQuery()
-            ) {
+            try (ResultSet resultSet = statement.executeQuery()) {
 
                 if (resultSet.next()) {
-
-                    user =
-                            mapUser(resultSet);
+                    return mapUser(resultSet);
                 }
             }
 
@@ -261,40 +193,28 @@ public class UserDAOImpl implements UserDAO {
             e.printStackTrace();
         }
 
-        return user;
+        return null;
     }
 
     @Override
     public boolean isEmailExists(String email) {
 
-        if (email == null
-                || email.trim().isEmpty()) {
-
+        if (email == null || email.trim().isEmpty()) {
             return false;
         }
 
         try (
-            Connection connection =
-                    DBConnection.getConnection();
+            Connection connection = DBConnection.getConnection();
 
-            PreparedStatement preparedStatement =
-                    connection.prepareStatement(
-                            CHECK_EMAIL
-                    )
+            PreparedStatement statement =
+                    connection.prepareStatement(CHECK_EMAIL)
         ) {
 
-            preparedStatement.setString(
-                    1,
-                    email.trim()
-            );
+            statement.setString(1, email.trim());
 
-            try (
-                ResultSet resultSet =
-                        preparedStatement.executeQuery()
-            ) {
+            try (ResultSet resultSet = statement.executeQuery()) {
 
                 if (resultSet.next()) {
-
                     return resultSet.getInt(1) > 0;
                 }
             }
@@ -309,27 +229,19 @@ public class UserDAOImpl implements UserDAO {
     @Override
     public List<User> getAllUsers() {
 
-        List<User> users =
-                new ArrayList<>();
+        List<User> users = new ArrayList<>();
 
         try (
-            Connection connection =
-                    DBConnection.getConnection();
+            Connection connection = DBConnection.getConnection();
 
-            PreparedStatement preparedStatement =
-                    connection.prepareStatement(
-                            GET_ALL_USERS
-                    );
+            PreparedStatement statement =
+                    connection.prepareStatement(GET_ALL_USERS);
 
-            ResultSet resultSet =
-                    preparedStatement.executeQuery()
+            ResultSet resultSet = statement.executeQuery()
         ) {
 
             while (resultSet.next()) {
-
-                users.add(
-                        mapUser(resultSet)
-                );
+                users.add(mapUser(resultSet));
             }
 
         } catch (SQLException e) {
@@ -342,127 +254,138 @@ public class UserDAOImpl implements UserDAO {
     @Override
     public boolean updateUser(User user) {
 
-        boolean updated = false;
+        if (user == null || user.getUserId() <= 0) {
+            return false;
+        }
 
         try (
-            Connection connection =
-                    DBConnection.getConnection();
+            Connection connection = DBConnection.getConnection();
 
-            PreparedStatement preparedStatement =
-                    connection.prepareStatement(
-                            UPDATE_USER
-                    )
+            PreparedStatement statement =
+                    connection.prepareStatement(UPDATE_USER)
         ) {
 
-            preparedStatement.setString(
-                    1,
-                    user.getUsername()
-            );
+            statement.setString(1, user.getUsername());
+            statement.setString(2, user.getPassword());
+            statement.setString(3, user.getEmail());
+            statement.setString(4, user.getPhone());
+            statement.setString(5, user.getAddress());
+            statement.setString(6, user.getRole());
+            statement.setInt(7, user.getUserId());
 
-            preparedStatement.setString(
-                    2,
-                    user.getPassword()
-            );
-
-            preparedStatement.setString(
-                    3,
-                    user.getEmail()
-            );
-
-            preparedStatement.setString(
-                    4,
-                    user.getPhone()
-            );
-
-            preparedStatement.setString(
-                    5,
-                    user.getAddress()
-            );
-
-            preparedStatement.setString(
-                    6,
-                    user.getRole()
-            );
-
-            preparedStatement.setInt(
-                    7,
-                    user.getUserId()
-            );
-
-            updated =
-                    preparedStatement.executeUpdate() > 0;
+            return statement.executeUpdate() > 0;
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return updated;
+        return false;
+    }
+
+    /*
+     * Updates profile details without changing password or role.
+     */
+    @Override
+    public boolean updateProfile(User user) {
+
+        if (user == null || user.getUserId() <= 0) {
+            return false;
+        }
+
+        try (
+            Connection connection = DBConnection.getConnection();
+
+            PreparedStatement statement =
+                    connection.prepareStatement(UPDATE_PROFILE)
+        ) {
+
+            statement.setString(1, user.getUsername());
+            statement.setString(2, user.getEmail());
+            statement.setString(3, user.getPhone());
+            statement.setString(4, user.getAddress());
+            statement.setInt(5, user.getUserId());
+
+            return statement.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    /*
+     * Checks the current password and updates it
+     * in a single database operation.
+     */
+    @Override
+    public boolean changePassword(
+            int userId,
+            String currentPassword,
+            String newPassword) {
+
+        if (userId <= 0
+                || currentPassword == null
+                || currentPassword.isEmpty()
+                || newPassword == null
+                || newPassword.isBlank()
+                || currentPassword.equals(newPassword)) {
+
+            return false;
+        }
+
+        try (
+            Connection connection = DBConnection.getConnection();
+
+            PreparedStatement statement =
+                    connection.prepareStatement(CHANGE_PASSWORD)
+        ) {
+
+            statement.setString(1, newPassword);
+            statement.setInt(2, userId);
+            statement.setString(3, currentPassword);
+
+            return statement.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
     }
 
     @Override
     public boolean deleteUser(int userId) {
 
-        boolean deleted = false;
-
         try (
-            Connection connection =
-                    DBConnection.getConnection();
+            Connection connection = DBConnection.getConnection();
 
-            PreparedStatement preparedStatement =
-                    connection.prepareStatement(
-                            DELETE_USER
-                    )
+            PreparedStatement statement =
+                    connection.prepareStatement(DELETE_USER)
         ) {
 
-            preparedStatement.setInt(
-                    1,
-                    userId
-            );
+            statement.setInt(1, userId);
 
-            deleted =
-                    preparedStatement.executeUpdate() > 0;
+            return statement.executeUpdate() > 0;
 
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return deleted;
+        return false;
     }
 
-    private User mapUser(
-            ResultSet resultSet)
-            throws SQLException {
+    private User mapUser(ResultSet resultSet) throws SQLException {
 
-        User user =
-                new User();
+        User user = new User();
 
-        user.setUserId(
-                resultSet.getInt("user_id")
-        );
-
-        user.setUsername(
-                resultSet.getString("username")
-        );
-
-        user.setPassword(
-                resultSet.getString("password")
-        );
-
-        user.setEmail(
-                resultSet.getString("email")
-        );
-
-        user.setPhone(
-                resultSet.getString("phone")
-        );
-
-        user.setAddress(
-                resultSet.getString("address")
-        );
-
-        user.setRole(
-                resultSet.getString("role")
-        );
+        user.setUserId(resultSet.getInt("user_id"));
+        user.setUsername(resultSet.getString("username"));
+        user.setPassword(resultSet.getString("password"));
+        user.setEmail(resultSet.getString("email"));
+        user.setPhone(resultSet.getString("phone"));
+        user.setAddress(resultSet.getString("address"));
+        user.setRole(resultSet.getString("role"));
 
         return user;
     }

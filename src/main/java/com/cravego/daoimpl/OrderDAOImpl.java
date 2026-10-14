@@ -477,6 +477,37 @@ public class OrderDAOImpl implements OrderDAO {
             }
         }
     }
+    
+    @Override
+    public boolean cancelOrder(int orderId, int userId) {
+
+        if (orderId <= 0 || userId <= 0) {
+            return false;
+        }
+
+        String sql =
+                "UPDATE orders SET status = 'CANCELLED' "
+              + "WHERE order_id = ? "
+              + "AND user_id = ? "
+              + "AND status = 'PLACED'";
+
+        try (
+            Connection connection = DBConnection.getConnection();
+
+            PreparedStatement statement =
+                    connection.prepareStatement(sql)
+        ) {
+
+            statement.setInt(1, orderId);
+            statement.setInt(2, userId);
+
+            return statement.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
     private Order extractOrder(
             ResultSet resultSet)

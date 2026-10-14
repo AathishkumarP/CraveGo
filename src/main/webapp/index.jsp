@@ -1266,50 +1266,53 @@
 
         </a>
 
-        <nav class="navbar-links">
+<nav class="navbar-links">
 
-            <% if (loggedInUser == null) { %>
+    <% if (loggedInUser == null) { %>
 
-                <a class="login-link"
-                   href="<%= contextPath %>/login">
-                    Login
-                </a>
+        <a class="login-link"
+           href="<%= contextPath %>/login">
+            Login
+        </a>
 
-                <a class="signup-link"
-                   href="<%= contextPath %>/register">
-                    Create Account
-                </a>
+        <a class="signup-link"
+           href="<%= contextPath %>/register">
+            Create Account
+        </a>
 
-            <% } else { %>
+    <% } else { %>
 
-                <span class="welcome-text">
-                    Hi, <%= loggedInUser.getUsername() %>
-                </span>
+        <span class="welcome-text">
+            Hi, <%= loggedInUser.getUsername() %>
+        </span>
 
-                <a class="nav-link"
-                   href="<%= contextPath %>/restaurants">
-                    Restaurants
-                </a>
+        <a class="nav-link"
+           href="<%= contextPath %>/restaurants">
+            Restaurants
+        </a>
 
-                <a class="cart-link"
-                   href="<%= contextPath %>/cart">
+        <a class="cart-link"
+           href="<%= contextPath %>/cart">
+            Cart
 
-                    Cart
+            <span class="cart-count">
+                <%= cartCount %>
+            </span>
+        </a>
+        
+		<a class="nav-link"
+		   href="<%= contextPath %>/profile">
+		    Account
+		</a>
 
-                    <span class="cart-count">
-                        <%= cartCount %>
-                    </span>
+        <a class="logout-link"
+           href="<%= contextPath %>/logout">
+            Logout
+        </a>
 
-                </a>
+    <% } %>
 
-                <a class="logout-link"
-                   href="<%= contextPath %>/logout">
-                    Logout
-                </a>
-
-            <% } %>
-
-        </nav>
+</nav>
 
     </header>
 

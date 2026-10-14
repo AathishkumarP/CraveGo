@@ -12,16 +12,21 @@ public interface UserDAO {
 
     User getUserByEmail(String email);
 
-    User validateUser(
-            String email,
-            String password
-    );
+    User validateUser(String email, String password);
 
     boolean isEmailExists(String email);
 
     List<User> getAllUsers();
 
     boolean updateUser(User user);
+
+    boolean updateProfile(User user);
+
+    boolean changePassword(
+            int userId,
+            String currentPassword,
+            String newPassword
+    );
 
     boolean deleteUser(int userId);
 }

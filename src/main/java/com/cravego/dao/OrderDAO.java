@@ -31,4 +31,6 @@ public interface OrderDAO {
     );
 
     int deleteOrder(int orderId);
+    
+    boolean cancelOrder(int orderId, int userId);
 }
