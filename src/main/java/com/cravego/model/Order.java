@@ -12,12 +12,27 @@ public class Order {
     private String status;
     private String paymentMode;
 
+    // Payment details
+    private String paymentStatus = "UNVERIFIED";
+    private String razorpayOrderId;
+    private String razorpayPaymentId;
+    private LocalDateTime paidAt;
+
     public Order() {
     }
 
-    public Order(int orderId, int userId, int restaurantId,
-                 LocalDateTime orderDate, double totalAmount,
-                 String status, String paymentMode) {
+    /*
+     * Existing constructor retained for compatibility.
+     */
+    public Order(
+            int orderId,
+            int userId,
+            int restaurantId,
+            LocalDateTime orderDate,
+            double totalAmount,
+            String status,
+            String paymentMode) {
+
         this.orderId = orderId;
         this.userId = userId;
         this.restaurantId = restaurantId;
@@ -25,6 +40,38 @@ public class Order {
         this.totalAmount = totalAmount;
         this.status = status;
         this.paymentMode = paymentMode;
+    }
+
+    /*
+     * Constructor including payment details.
+     */
+    public Order(
+            int orderId,
+            int userId,
+            int restaurantId,
+            LocalDateTime orderDate,
+            double totalAmount,
+            String status,
+            String paymentMode,
+            String paymentStatus,
+            String razorpayOrderId,
+            String razorpayPaymentId,
+            LocalDateTime paidAt) {
+
+        this(
+                orderId,
+                userId,
+                restaurantId,
+                orderDate,
+                totalAmount,
+                status,
+                paymentMode
+        );
+
+        this.paymentStatus = paymentStatus;
+        this.razorpayOrderId = razorpayOrderId;
+        this.razorpayPaymentId = razorpayPaymentId;
+        this.paidAt = paidAt;
     }
 
     public int getOrderId() {
@@ -83,6 +130,46 @@ public class Order {
         this.paymentMode = paymentMode;
     }
 
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public String getRazorpayOrderId() {
+        return razorpayOrderId;
+    }
+
+    public void setRazorpayOrderId(String razorpayOrderId) {
+        this.razorpayOrderId = razorpayOrderId;
+    }
+
+    public String getRazorpayPaymentId() {
+        return razorpayPaymentId;
+    }
+
+    public void setRazorpayPaymentId(String razorpayPaymentId) {
+        this.razorpayPaymentId = razorpayPaymentId;
+    }
+
+    public LocalDateTime getPaidAt() {
+        return paidAt;
+    }
+
+    public void setPaidAt(LocalDateTime paidAt) {
+        this.paidAt = paidAt;
+    }
+
+    /*
+     * Indicates the saved payment status.
+     * Gateway verification must happen before setting PAID.
+     */
+    public boolean isPaid() {
+        return "PAID".equalsIgnoreCase(paymentStatus);
+    }
+
     @Override
     public String toString() {
         return "Order{" +
@@ -93,6 +180,10 @@ public class Order {
                 ", totalAmount=" + totalAmount +
                 ", status='" + status + '\'' +
                 ", paymentMode='" + paymentMode + '\'' +
+                ", paymentStatus='" + paymentStatus + '\'' +
+                ", razorpayOrderId='" + razorpayOrderId + '\'' +
+                ", razorpayPaymentId='" + razorpayPaymentId + '\'' +
+                ", paidAt=" + paidAt +
                 '}';
     }
 }
