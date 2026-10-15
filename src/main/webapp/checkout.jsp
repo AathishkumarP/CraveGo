@@ -1,162 +1,112 @@
 <%@ page language="java"
          contentType="text/html; charset=UTF-8"
          pageEncoding="UTF-8" %>
-
 <%@ page import="java.util.Map" %>
+<%@ page import="java.util.Locale" %>
 <%@ page import="com.cravego.model.Menu" %>
 <%@ page import="com.cravego.model.Restaurant" %>
 <%@ page import="com.cravego.model.User" %>
 
 <%!
     private String escapeHtml(String value) {
-
         if (value == null) {
             return "";
         }
 
-        return value
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;");
+        return value.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace("\"", "&quot;")
+                    .replace("'", "&#39;");
+    }
+
+    private String money(double value) {
+        return String.format(Locale.ENGLISH, "%.2f", value);
     }
 %>
 
 <%
-    String contextPath =
-            request.getContextPath();
+    response.setHeader("Cache-Control", "no-store");
 
-    User loggedInUser =
-            (User) session.getAttribute(
-                    "loggedInUser"
-            );
+    String contextPath = request.getContextPath();
 
-    Restaurant restaurant =
-            (Restaurant) request.getAttribute(
-                    "restaurant"
-            );
+    Object userAttribute = session.getAttribute("loggedInUser");
 
-    Map<Menu, Integer> cartItems =
-            (Map<Menu, Integer>)
-            request.getAttribute("cartItems");
-
-    Double subtotal =
-            (Double) request.getAttribute(
-                    "subtotal"
-            );
-
-    Double deliveryFee =
-            (Double) request.getAttribute(
-                    "deliveryFee"
-            );
-
-    Double platformFee =
-            (Double) request.getAttribute(
-                    "platformFee"
-            );
-
-    Double totalAmount =
-            (Double) request.getAttribute(
-                    "totalAmount"
-            );
-
-    Integer totalQuantity =
-            (Integer) request.getAttribute(
-                    "totalQuantity"
-            );
-
-    String errorMessage =
-            (String) request.getAttribute(
-                    "errorMessage"
-            );
-
-    if (loggedInUser == null) {
-
-        response.sendRedirect(
-                contextPath + "/login"
-        );
-
+    if (!(userAttribute instanceof User)) {
+        response.sendRedirect(contextPath + "/login");
         return;
     }
 
-    subtotal =
-            subtotal == null
-            ? 0.0
-            : subtotal;
+    User user = (User) userAttribute;
 
-    deliveryFee =
-            deliveryFee == null
-            ? 0.0
-            : deliveryFee;
+    Restaurant restaurant =
+            (Restaurant) request.getAttribute("restaurant");
 
-    platformFee =
-            platformFee == null
-            ? 0.0
-            : platformFee;
+    @SuppressWarnings("unchecked")
+    Map<Menu, Integer> cartItems =
+            (Map<Menu, Integer>) request.getAttribute("cartItems");
 
-    totalAmount =
-            totalAmount == null
-            ? 0.0
-            : totalAmount;
+    Object tokenAttribute = session.getAttribute("checkoutCsrfToken");
 
-    totalQuantity =
-            totalQuantity == null
-            ? 0
-            : totalQuantity;
+    if (restaurant == null
+            || cartItems == null
+            || cartItems.isEmpty()
+            || !(tokenAttribute instanceof String)) {
+
+        response.sendRedirect(contextPath + "/checkout");
+        return;
+    }
+
+    String checkoutToken = (String) tokenAttribute;
+
+    Number subtotalValue = (Number) request.getAttribute("subtotal");
+    Number deliveryValue = (Number) request.getAttribute("deliveryFee");
+    Number platformValue = (Number) request.getAttribute("platformFee");
+    Number totalValue = (Number) request.getAttribute("totalAmount");
+
+    double subtotal = subtotalValue == null
+            ? 0 : subtotalValue.doubleValue();
+
+    double deliveryFee = deliveryValue == null
+            ? 0 : deliveryValue.doubleValue();
+
+    double platformFee = platformValue == null
+            ? 0 : platformValue.doubleValue();
+
+    double totalAmount = totalValue == null
+            ? 0 : totalValue.doubleValue();
+
+    String errorMessage =
+            (String) request.getAttribute("errorMessage");
 %>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
     <title>Checkout | CraveGo</title>
 
     <style>
-
         :root {
             --navy: #111827;
-            --navy-light: #202838;
             --coral: #ff6647;
-            --coral-dark: #e95234;
             --mint: #29b783;
-            --mint-dark: #218d67;
-            --mint-light: #dff8ef;
             --cream: #fffaf2;
-            --white: #ffffff;
-            --yellow: #ffc857;
-            --muted: #687385;
             --border: #e7e1d8;
-            --danger: #dc3545;
-            --danger-light: #fff0ee;
+            --muted: #687385;
         }
 
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
 
-        html {
-            scroll-behavior: smooth;
-        }
-
         body {
-            min-height: 100vh;
+            margin: 0;
+            background: var(--cream);
             color: var(--navy);
-            background:
-                radial-gradient(
-                    circle at top left,
-                    rgba(255, 200, 87, 0.14),
-                    transparent 25%
-                ),
-                var(--cream);
             font-family: Arial, Helvetica, sans-serif;
         }
 
@@ -165,62 +115,47 @@
             text-decoration: none;
         }
 
-        button,
-        input {
-            font-family: inherit;
+        button, input {
+            font: inherit;
         }
 
-        /* =========================
-           NAVBAR
-        ========================= */
-
-        .navbar-wrapper {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            padding: 13px 5%;
-            background-color: rgba(255, 250, 242, 0.92);
-            backdrop-filter: blur(13px);
+        [hidden] {
+            display: none !important;
         }
 
         .navbar {
-            width: min(1240px, 100%);
-            min-height: 68px;
-            margin: auto;
-            padding: 10px 13px 10px 20px;
-
+            width: min(1240px, 90%);
+            margin: 20px auto;
+            padding: 15px 22px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 20px;
-
-            background-color: var(--white);
-            border: 1px solid rgba(17, 24, 39, 0.06);
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+            background: white;
+            border: 1px solid #f0ece5;
+            border-radius: 22px;
+            box-shadow: 0 10px 30px #11182708;
         }
 
         .logo {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 10px;
+            font-size: 25px;
+            font-weight: 900;
+            letter-spacing: -1px;
         }
 
         .logo-symbol {
             position: relative;
-            width: 41px;
-            height: 41px;
-
             display: grid;
             place-items: center;
+            width: 42px;
+            height: 42px;
             overflow: hidden;
-
-            color: var(--white);
-            background-color: var(--coral);
+            color: white;
+            background: var(--coral);
             border-radius: 13px 13px 13px 4px;
-
-            font-size: 20px;
-            font-weight: 900;
         }
 
         .logo-symbol::after {
@@ -228,70 +163,37 @@
             position: absolute;
             right: -6px;
             bottom: -6px;
-            width: 18px;
-            height: 18px;
-            background-color: var(--yellow);
+            width: 19px;
+            height: 19px;
             border-radius: 50%;
+            background: #ffc857;
         }
 
-        .logo-text {
-            font-size: 24px;
-            font-weight: 900;
-            letter-spacing: -1px;
-        }
-
-        .logo-text span {
+        .logo-word span {
             color: var(--coral);
         }
 
-        .navbar-links {
+        .nav-links {
             display: flex;
             align-items: center;
-            gap: 9px;
-        }
-
-        .nav-link,
-        .welcome-text {
-            padding: 9px 11px;
+            gap: 22px;
             font-size: 13px;
             font-weight: 800;
         }
 
-        .nav-link:hover {
-            color: var(--coral);
-        }
-
-        .logout-button {
-            padding: 11px 15px;
-            color: var(--white);
-            background-color: var(--navy);
-            border-radius: 11px;
-            font-size: 12px;
-            font-weight: 900;
-        }
-
-        /* =========================
-           HEADER
-        ========================= */
-
-        .checkout-header {
+        .hero, .layout, .server-error {
             width: min(1240px, 90%);
-            margin: 12px auto 25px;
-            padding: 32px 38px;
-
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 25px;
-
-            color: var(--white);
-            background-color: var(--navy);
-            border-radius: 27px;
-            box-shadow: 0 18px 38px rgba(17, 24, 39, 0.16);
+            margin: 0 auto 24px;
         }
 
-        .header-label {
-            margin-bottom: 8px;
+        .hero {
+            padding: 30px 35px;
+            background: var(--navy);
+            color: white;
+            border-radius: 26px;
+        }
+
+        .eyebrow {
             color: var(--mint);
             font-size: 10px;
             font-weight: 900;
@@ -299,1059 +201,822 @@
             text-transform: uppercase;
         }
 
-        .checkout-header h1 {
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: clamp(34px, 5vw, 52px);
-            line-height: 1;
+        h1 {
+            margin: 12px 0;
+            font-family: Georgia, serif;
+            font-size: 40px;
         }
 
-        .checkout-header p {
-            margin-top: 10px;
+        .hero p {
+            margin: 0;
             color: #cbd2de;
             font-size: 13px;
+            line-height: 1.7;
         }
 
-        .secure-badge {
-            padding: 13px 17px;
-            color: var(--navy);
-            background-color: var(--yellow);
-            border-radius: 13px;
-            font-size: 12px;
-            font-weight: 900;
-            white-space: nowrap;
-        }
-
-        /* =========================
-           ERROR MESSAGE
-        ========================= */
-
-        .error-message {
-            width: min(1240px, 90%);
-            margin: 0 auto 18px;
-            padding: 14px 18px;
-
-            color: var(--danger);
-            background-color: var(--danger-light);
-            border: 1px solid #ffc9c1;
-            border-radius: 13px;
-
-            font-size: 13px;
-            font-weight: 800;
-        }
-
-        /* =========================
-           LAYOUT
-        ========================= */
-
-        .checkout-layout {
-            width: min(1240px, 90%);
-            margin: 0 auto 60px;
-
+        .layout {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 360px;
-            align-items: start;
+            grid-template-columns: minmax(0, 1fr) 350px;
             gap: 24px;
+            align-items: start;
+            margin-bottom: 60px;
         }
 
-        .checkout-left {
+        .left {
             display: grid;
             gap: 20px;
         }
 
-        .checkout-card {
+        .card {
             padding: 25px;
-            background-color: var(--white);
             border: 1px solid var(--border);
             border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(17, 24, 39, 0.07);
+            background: white;
         }
 
-        .section-heading {
-            margin-bottom: 19px;
+        .heading {
             display: flex;
             align-items: center;
             gap: 13px;
+            margin-bottom: 20px;
         }
 
-        .step-number {
-            width: 35px;
-            height: 35px;
-
+        .step {
             display: grid;
             place-items: center;
-
-            color: var(--white);
-            background-color: var(--coral);
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
             border-radius: 11px;
-
-            font-size: 13px;
+            color: white;
+            background: var(--coral);
             font-weight: 900;
         }
 
-        .section-heading h2 {
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 24px;
+        h2 {
+            margin: 0;
+            font: bold 25px Georgia, serif;
         }
 
-        .section-heading p {
-            margin-top: 3px;
+        .muted {
             color: var(--muted);
-            font-size: 11px;
+            font-size: 12px;
+            line-height: 1.7;
         }
 
-        /* =========================
-           DELIVERY DETAILS
-        ========================= */
-
-        .delivery-profile {
+        .customer {
             padding: 18px;
-
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-
-            background-color: #fffdf8;
             border: 1px solid var(--border);
-            border-radius: 17px;
-        }
-
-        .profile-field {
-            min-width: 0;
-        }
-
-        .profile-field.full-width {
-            grid-column: 1 / -1;
-        }
-
-        .field-label {
-            display: block;
-            margin-bottom: 6px;
-            color: var(--muted);
-            font-size: 9px;
-            font-weight: 900;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .field-value {
+            border-radius: 15px;
+            background: #fffdf8;
             overflow-wrap: anywhere;
-            font-size: 13px;
-            font-weight: 800;
-            line-height: 1.5;
         }
 
-        .delivery-note {
-            margin-top: 14px;
-            padding: 12px 14px;
-            color: var(--mint-dark);
-            background-color: var(--mint-light);
-            border-radius: 11px;
-            font-size: 11px;
-            font-weight: 700;
-            line-height: 1.5;
+        .customer strong {
+            display: block;
+            margin-bottom: 9px;
         }
 
-        /* =========================
-           PAYMENT
-        ========================= */
+        .customer p {
+            margin: 5px 0;
+        }
 
-        .payment-options {
+        .options {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 14px;
         }
 
-        .payment-option {
-            position: relative;
+        .option {
             cursor: pointer;
         }
 
-        .payment-option input {
+        .option input {
             position: absolute;
             opacity: 0;
-            pointer-events: none;
         }
 
-        .payment-content {
-            min-height: 135px;
-            padding: 18px;
-
+        .option-body {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-
-            background-color: #fffdf8;
+            min-height: 150px;
+            padding: 20px;
             border: 2px solid var(--border);
             border-radius: 17px;
-
-            transition:
-                border-color 0.2s ease,
-                background-color 0.2s ease,
-                transform 0.2s ease;
+            background: #fffdf8;
         }
 
-        .payment-option:hover .payment-content {
-            transform: translateY(-3px);
-        }
-
-        .payment-option input:checked
-        + .payment-content {
-            background-color: var(--mint-light);
+        .option input:checked + .option-body {
+            background: #dff8ef;
             border-color: var(--mint);
         }
 
-        .payment-icon {
-            width: 42px;
-            height: 42px;
-
-            display: grid;
-            place-items: center;
-
-            background-color: var(--white);
-            border-radius: 12px;
-            font-size: 22px;
+        .option input:focus-visible + .option-body {
+            outline: 3px solid var(--navy);
+            outline-offset: 3px;
         }
 
-        .payment-title {
-            margin-top: 14px;
-            font-size: 14px;
-            font-weight: 900;
-        }
-
-        .payment-description {
-            margin-top: 5px;
-            color: var(--muted);
-            font-size: 10px;
-            line-height: 1.5;
-        }
-
-        .payment-check {
-            position: absolute;
-            top: 13px;
-            right: 13px;
-
-            width: 22px;
-            height: 22px;
-
-            display: grid;
-            place-items: center;
-
-            color: transparent;
-            background-color: var(--white);
-            border: 2px solid #cfd4dc;
-            border-radius: 50%;
-
-            font-size: 12px;
-            font-weight: 900;
-        }
-
-        .payment-option input:checked
-        ~ .payment-check {
-            color: var(--white);
-            background-color: var(--mint);
-            border-color: var(--mint);
-        }
-
-        /* =========================
-           RESTAURANT ITEMS
-        ========================= */
-
-        .restaurant-summary {
-            margin-bottom: 15px;
-            padding: 14px;
-
-            display: grid;
-            grid-template-columns: 55px minmax(0, 1fr);
-            align-items: center;
-            gap: 13px;
-
-            color: var(--white);
-            background-color: var(--navy);
-            border-radius: 15px;
-        }
-
-        .restaurant-summary img {
-            width: 55px;
-            height: 55px;
-            object-fit: cover;
-            border: 2px solid var(--yellow);
-            border-radius: 13px;
-        }
-
-        .restaurant-summary h3 {
-            overflow: hidden;
-            font-size: 15px;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-        }
-
-        .restaurant-summary p {
-            margin-top: 5px;
-            color: #b9c1ce;
-            font-size: 10px;
-        }
-
-        .checkout-items {
-            display: grid;
-            gap: 11px;
-        }
-
-        .checkout-item {
-            padding: 11px;
-
-            display: grid;
-            grid-template-columns: 55px minmax(0, 1fr) auto;
-            align-items: center;
-            gap: 12px;
-
-            background-color: #fffdf8;
-            border: 1px solid var(--border);
-            border-radius: 14px;
-        }
-
-        .checkout-item img {
-            width: 55px;
-            height: 55px;
-            object-fit: cover;
-            border-radius: 12px;
-        }
-
-        .checkout-item h4 {
-            overflow: hidden;
-            font-size: 12px;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-        }
-
-        .checkout-item p {
-            margin-top: 5px;
-            color: var(--muted);
-            font-size: 10px;
-        }
-
-        .checkout-item-total {
-            font-size: 12px;
-            font-weight: 900;
-            white-space: nowrap;
-        }
-
-        /* =========================
-           BILL
-        ========================= */
-
-        .bill-card {
-            position: sticky;
-            top: 108px;
-            overflow: hidden;
-
-            background-color: var(--white);
-            border: 1px solid var(--border);
-            border-radius: 25px;
-            box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
-        }
-
-        .bill-header {
-            padding: 23px;
-            color: var(--white);
-            background-color: var(--navy);
-        }
-
-        .bill-header small {
-            color: var(--mint);
-            font-size: 9px;
-            font-weight: 900;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-        }
-
-        .bill-header h2 {
-            margin-top: 7px;
-            font-family: Georgia, "Times New Roman", serif;
+        .option-icon {
+            margin-bottom: 18px;
             font-size: 26px;
         }
 
-        .bill-body {
-            padding: 22px;
+        .option strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
         }
 
-        .bill-row {
-            margin-bottom: 16px;
-
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
-
+        .option small {
             color: var(--muted);
-            font-size: 13px;
+            font-size: 11px;
+            line-height: 1.6;
         }
 
-        .bill-row span:last-child {
-            color: var(--navy);
+        .restaurant {
+            padding: 17px;
+            margin-bottom: 15px;
+            background: var(--navy);
+            color: white;
+            border-radius: 15px;
             font-weight: 800;
         }
 
-        .bill-row .free-delivery {
-            color: var(--mint-dark);
-        }
-
-        .bill-divider {
-            margin: 20px 0;
-            border: none;
-            border-top: 1px dashed #cfd4dc;
-        }
-
-        .bill-total {
+        .item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 18px;
+            gap: 15px;
+            padding: 16px 0;
+            border-bottom: 1px solid #f0ece5;
+        }
+
+        .item:last-child {
+            border-bottom: 0;
+        }
+
+        .item strong {
+            font-size: 13px;
+        }
+
+        .item p {
+            margin: 6px 0 0;
+        }
+
+        .bill {
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .bill-header {
+            padding: 28px 24px;
+            color: white;
+            background: var(--navy);
+        }
+
+        .bill-header h2 {
+            margin-top: 12px;
+            font-size: 30px;
+        }
+
+        .bill-body {
+            padding: 25px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+
+        .row span {
+            color: var(--muted);
+        }
+
+        .total {
+            padding-top: 22px;
+            margin-top: 24px;
+            border-top: 1px dashed #cfd4dc;
+            font-size: 22px;
             font-weight: 900;
         }
 
-        .bill-total strong {
-            color: var(--coral);
-            font-size: 23px;
+        .total span {
+            color: var(--navy);
         }
 
-        .place-order-button {
+        .total strong {
+            color: var(--coral);
+        }
+
+        .button {
+            display: block;
             width: 100%;
-            margin-top: 22px;
             padding: 16px;
-
-            color: var(--white);
-            background-color: var(--coral);
-            border: none;
+            border: 0;
             border-radius: 13px;
+            text-align: center;
             cursor: pointer;
-
             font-size: 12px;
             font-weight: 900;
-            text-transform: uppercase;
-
-            box-shadow:
-                0 9px 20px
-                rgba(255, 102, 71, 0.25);
         }
 
-        .place-order-button:hover {
-            background-color: var(--coral-dark);
+        .primary {
+            color: white;
+            background: var(--coral);
         }
 
-        .terms {
-            margin-top: 13px;
-            color: var(--muted);
-            font-size: 9px;
-            line-height: 1.5;
-            text-align: center;
-        }
-
-        .back-cart {
+        .secondary {
             margin-top: 12px;
-            padding: 11px;
-            display: block;
             color: var(--navy);
-            background-color: var(--mint-light);
-            border-radius: 11px;
-            font-size: 11px;
-            font-weight: 900;
-            text-align: center;
+            background: #dff8ef;
         }
 
-        /* =========================
-           RESPONSIVE
-        ========================= */
+        .button:disabled {
+            opacity: .6;
+            cursor: wait;
+        }
 
-        @media (max-width: 900px) {
+        .status {
+            margin: 15px 0 0;
+            font-size: 12px;
+            line-height: 1.7;
+            overflow-wrap: anywhere;
+        }
 
-            .checkout-layout {
+        .server-error {
+            padding: 16px;
+            color: #9f2633;
+            background: #fff0ee;
+            border: 1px solid #ffc9c1;
+            border-radius: 12px;
+        }
+
+        .test-note {
+            margin: 18px 0;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.7;
+        }
+
+        @media (max-width: 850px) {
+            .layout {
                 grid-template-columns: 1fr;
             }
 
-            .bill-card {
-                position: relative;
-                top: auto;
+            .nav-links {
+                gap: 13px;
             }
 
-            .welcome-text {
+            .welcome {
                 display: none;
             }
         }
 
-        @media (max-width: 650px) {
-
-            .navbar-wrapper {
-                padding: 9px 4%;
+        @media (max-width: 500px) {
+            .options {
+                grid-template-columns: 1fr;
             }
 
             .navbar {
-                align-items: flex-start;
-            }
-
-            .navbar-links {
-                justify-content: flex-end;
                 flex-wrap: wrap;
             }
 
-            .nav-link,
-            .logout-button {
-                display: none;
+            .card {
+                padding: 20px;
             }
 
-            .logo-text {
-                font-size: 20px;
+            .bill {
+                padding: 0;
             }
 
-            .checkout-header {
-                padding: 27px 22px;
-                align-items: flex-start;
-                flex-direction: column;
-            }
-
-            .checkout-card {
-                padding: 19px;
-            }
-
-            .delivery-profile,
-            .payment-options {
-                grid-template-columns: 1fr;
-            }
-
-            .profile-field.full-width {
-                grid-column: auto;
+            h1 {
+                font-size: 32px;
             }
         }
-
     </style>
-
 </head>
 
 <body>
 
-<div class="navbar-wrapper">
+<nav class="navbar" aria-label="Main navigation">
+    <a class="logo"
+       href="<%= escapeHtml(contextPath + "/") %>">
+        <span class="logo-symbol" aria-hidden="true">C</span>
+        <span class="logo-word">Crave<span>Go</span></span>
+    </a>
 
-    <header class="navbar">
-
-        <a class="logo"
-           href="<%= contextPath %>/">
-
-            <span class="logo-symbol">
-                C
-            </span>
-
-            <span class="logo-text">
-                Crave<span>Go</span>
-            </span>
-
+    <div class="nav-links">
+        <a href="<%= escapeHtml(contextPath + "/restaurants") %>">
+            Restaurants
         </a>
 
-        <nav class="navbar-links">
+        <a href="<%= escapeHtml(contextPath + "/my-orders") %>">
+            My Orders
+        </a>
 
-            <a class="nav-link"
-               href="<%= contextPath %>/">
-                Home
-            </a>
-
-            <a class="nav-link"
-               href="<%= contextPath %>/restaurants">
-                Restaurants
-            </a>
-
-            <span class="welcome-text">
-                Hi, <%= escapeHtml(
-                        loggedInUser.getUsername()
-                ) %>
-            </span>
-
-            <a class="logout-button"
-               href="<%= contextPath %>/logout">
-                Logout
-            </a>
-
-        </nav>
-
-    </header>
-
-</div>
-
-<section class="checkout-header">
-
-    <div>
-
-        <div class="header-label">
-            Final checkout
-        </div>
-
-        <h1>
-            One step from delicious.
-        </h1>
-
-        <p>
-            Confirm your delivery details and payment method.
-        </p>
-
+        <span class="welcome">
+            Hi, <%= escapeHtml(user.getUsername()) %>
+        </span>
     </div>
+</nav>
 
-    <div class="secure-badge">
-        ✓ Secure checkout
-    </div>
+<header class="hero">
+    <div class="eyebrow">Your next bite is almost here</div>
+    <h1>Finish your order.</h1>
+    <p>Review your food and choose how you would like to pay.</p>
+</header>
 
-</section>
-
-<%
-    if (errorMessage != null
-            && !errorMessage.isBlank()) {
-%>
-
-    <div class="error-message">
+<% if (errorMessage != null) { %>
+    <div class="server-error" role="alert">
         <%= escapeHtml(errorMessage) %>
     </div>
+<% } %>
 
-<%
-    }
-%>
-
-<form action="<%= contextPath %>/checkout"
+<form id="checkout-form"
+      class="layout"
+      action="<%= escapeHtml(contextPath + "/checkout") %>"
       method="post">
 
-    <main class="checkout-layout">
-
-        <div class="checkout-left">
-
-            <!-- DELIVERY DETAILS -->
-
-            <section class="checkout-card">
-
-                <div class="section-heading">
-
-                    <span class="step-number">
-                        1
-                    </span>
-
-                    <div>
-
-                        <h2>Delivery details</h2>
-
-                        <p>
-                            Your order will be delivered here.
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <div class="delivery-profile">
-
-                    <div class="profile-field">
-
-                        <span class="field-label">
-                            Customer name
-                        </span>
-
-                        <span class="field-value">
-                            <%= escapeHtml(
-                                    loggedInUser.getUsername()
-                            ) %>
-                        </span>
-
-                    </div>
-
-                    <div class="profile-field">
-
-                        <span class="field-label">
-                            Phone number
-                        </span>
-
-                        <span class="field-value">
-                            <%= escapeHtml(
-                                    loggedInUser.getPhone()
-                            ) %>
-                        </span>
-
-                    </div>
-
-                    <div class="profile-field">
-
-                        <span class="field-label">
-                            Email
-                        </span>
-
-                        <span class="field-value">
-                            <%= escapeHtml(
-                                    loggedInUser.getEmail()
-                            ) %>
-                        </span>
-
-                    </div>
-
-                    <div class="profile-field full-width">
-
-                        <span class="field-label">
-                            Delivery address
-                        </span>
-
-                        <span class="field-value">
-                            <%= escapeHtml(
-                                    loggedInUser.getAddress()
-                            ) %>
-                        </span>
-
-                    </div>
-
-                </div>
-
-                <div class="delivery-note">
-                    Please ensure your phone number and delivery
-                    address are correct before placing the order.
-                </div>
-
-            </section>
-
-            <!-- PAYMENT METHOD -->
-
-            <section class="checkout-card">
-
-                <div class="section-heading">
-
-                    <span class="step-number">
-                        2
-                    </span>
-
-                    <div>
-
-                        <h2>Payment method</h2>
-
-                        <p>
-                            Select how you want to pay.
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <div class="payment-options">
-
-                    <label class="payment-option">
-
-                        <input type="radio"
-                               name="paymentMode"
-                               value="COD"
-                               checked
-                               required>
-
-                        <span class="payment-content">
-
-                            <span class="payment-icon">
-                                💵
-                            </span>
-
-                            <span>
-
-                                <span class="payment-title">
-                                    Cash on Delivery
-                                </span>
-
-                                <span class="payment-description">
-                                    Pay when your food arrives.
-                                </span>
-
-                            </span>
-
-                        </span>
-
-                        <span class="payment-check">
-                            ✓
-                        </span>
-
-                    </label>
-
-                    <label class="payment-option">
-
-                        <input type="radio"
-                               name="paymentMode"
-                               value="UPI"
-                               required>
-
-                        <span class="payment-content">
-
-                            <span class="payment-icon">
-                                📱
-                            </span>
-
-                            <span>
-
-                                <span class="payment-title">
-                                    UPI Payment
-                                </span>
-
-                                <span class="payment-description">
-                                    Select UPI for the first-version
-                                    simulated payment flow.
-                                </span>
-
-                            </span>
-
-                        </span>
-
-                        <span class="payment-check">
-                            ✓
-                        </span>
-
-                    </label>
-
-                </div>
-
-            </section>
-
-            <!-- ORDER ITEMS -->
-
-            <section class="checkout-card">
-
-                <div class="section-heading">
-
-                    <span class="step-number">
-                        3
-                    </span>
-
-                    <div>
-
-                        <h2>Review your order</h2>
-
-                        <p>
-                            <%= totalQuantity %>
-                            <%= totalQuantity == 1
-                                    ? "item"
-                                    : "items" %>
-                            selected
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <% if (restaurant != null) { %>
-
-                    <div class="restaurant-summary">
-
-                        <img
-                            src="<%= escapeHtml(
-                                    restaurant.getImagePath()
-                            ) %>"
-                            alt="<%= escapeHtml(
-                                    restaurant.getName()
-                            ) %>"
-                            onerror="this.src='https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&amp;fit=crop&amp;w=400&amp;q=80'">
-
-                        <div>
-
-                            <h3>
-                                <%= escapeHtml(
-                                        restaurant.getName()
-                                ) %>
-                            </h3>
-
-                            <p>
-                                Estimated delivery:
-                                <%= restaurant.getDeliveryTime() %>
-                                minutes
-                            </p>
-
-                        </div>
-
-                    </div>
-
-                <% } %>
-
-                <div class="checkout-items">
-
-                    <%
-                        if (cartItems != null) {
-
-                            for (
-                                Map.Entry<Menu, Integer> entry
-                                    : cartItems.entrySet()
-                            ) {
-
-                                Menu menu =
-                                        entry.getKey();
-
-                                int quantity =
-                                        entry.getValue();
-
-                                double itemTotal =
-                                        menu.getPrice()
-                                        * quantity;
-                    %>
-
-                        <div class="checkout-item">
-
-                            <img
-                                src="<%= escapeHtml(
-                                        menu.getImagePath()
-                                ) %>"
-                                alt="<%= escapeHtml(
-                                        menu.getItemName()
-                                ) %>"
-                                onerror="this.src='https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&amp;fit=crop&amp;w=300&amp;q=80'">
-
-                            <div>
-
-                                <h4>
-                                    <%= escapeHtml(
-                                            menu.getItemName()
-                                    ) %>
-                                </h4>
-
-                                <p>
-                                    ₹<%= String.format(
-                                            "%.2f",
-                                            menu.getPrice()
-                                    ) %>
-                                    × <%= quantity %>
-                                </p>
-
-                            </div>
-
-                            <span class="checkout-item-total">
-                                ₹<%= String.format(
-                                        "%.2f",
-                                        itemTotal
-                                ) %>
-                            </span>
-
-                        </div>
-
-                    <%
-                            }
-                        }
-                    %>
-
-                </div>
-
-            </section>
-
-        </div>
-
-        <!-- BILL DETAILS -->
-
-        <aside class="bill-card">
-
-            <div class="bill-header">
-
-                <small>
-                    Payment summary
-                </small>
-
-                <h2>
-                    Bill details
-                </h2>
-
+    <input type="hidden"
+           name="csrfToken"
+           value="<%= escapeHtml(checkoutToken) %>">
+
+    <div class="left">
+        <section class="card">
+            <div class="heading">
+                <span class="step">1</span>
+                <h2>Your details</h2>
             </div>
 
-            <div class="bill-body">
+            <div class="customer">
+                <strong><%= escapeHtml(user.getUsername()) %></strong>
+                <p class="muted"><%= escapeHtml(user.getPhone()) %></p>
+                <p class="muted"><%= escapeHtml(user.getEmail()) %></p>
+            </div>
+        </section>
 
-                <div class="bill-row">
+        <section class="card">
+            <div class="heading">
+                <span class="step">2</span>
+                <h2>Payment method</h2>
+            </div>
 
-                    <span>
-                        Item total
-                    </span>
+            <div class="options">
+                <label class="option">
+                    <input type="radio"
+                           name="paymentMode"
+                           value="COD"
+                           checked>
 
-                    <span>
-                        ₹<%= String.format(
-                                "%.2f",
-                                subtotal
-                        ) %>
-                    </span>
-
-                </div>
-
-                <div class="bill-row">
-
-                    <span>
-                        Delivery fee
-                    </span>
-
-                    <% if (deliveryFee == 0.0) { %>
-
-                        <span class="free-delivery">
-                            FREE
+                    <span class="option-body">
+                        <span class="option-icon" aria-hidden="true">
+                            &#128181;
                         </span>
-
-                    <% } else { %>
 
                         <span>
-                            ₹<%= String.format(
-                                    "%.2f",
-                                    deliveryFee
-                            ) %>
+                            <strong>Cash on Delivery</strong>
+                            <small>Pay when your food arrives.</small>
+                        </span>
+                    </span>
+                </label>
+
+                <label class="option">
+                    <input type="radio"
+                           id="online-payment"
+                           name="paymentMode"
+                           value="RAZORPAY">
+
+                    <span class="option-body">
+                        <span class="option-icon" aria-hidden="true">
+                            &#128241;
                         </span>
 
-                    <% } %>
-
-                </div>
-
-                <div class="bill-row">
-
-                    <span>
-                        Platform fee
+                        <span>
+                            <strong>Online Payment</strong>
+                            <small>
+                                Open payment options and choose
+                                an available method.
+                            </small>
+                        </span>
                     </span>
-
-                    <span>
-                        ₹<%= String.format(
-                                "%.2f",
-                                platformFee
-                        ) %>
-                    </span>
-
-                </div>
-
-                <hr class="bill-divider">
-
-                <div class="bill-total">
-
-                    <span>
-                        To Pay
-                    </span>
-
-                    <strong>
-                        ₹<%= String.format(
-                                "%.2f",
-                                totalAmount
-                        ) %>
-                    </strong>
-
-                </div>
-
-                <button class="place-order-button"
-                        type="submit">
-
-                    Place Order •
-                    ₹<%= String.format(
-                            "%.2f",
-                            totalAmount
-                    ) %>
-
-                </button>
-
-                <p class="terms">
-                    By placing this order, you confirm your
-                    delivery details and payment selection.
-                </p>
-
-                <a class="back-cart"
-                   href="<%= contextPath %>/cart">
-
-                    ← Return to cart
-
-                </a>
-
+                </label>
             </div>
 
-        </aside>
+            <p class="muted">
+                Selecting Online Payment saves a pending order
+                and opens secure checkout here.
+            </p>
+        </section>
 
-    </main>
+        <section class="card">
+            <div class="heading">
+                <span class="step">3</span>
+                <h2>Review your order</h2>
+            </div>
 
+            <div class="restaurant">
+                <%= escapeHtml(restaurant.getName()) %>
+            </div>
+
+            <% for (Map.Entry<Menu, Integer> entry
+                    : cartItems.entrySet()) {
+                Menu menu = entry.getKey();
+                int quantity = entry.getValue();
+            %>
+                <div class="item">
+                    <div>
+                        <strong>
+                            <%= escapeHtml(menu.getItemName()) %>
+                        </strong>
+
+                        <p class="muted">
+                            Quantity: <%= quantity %>
+                        </p>
+                    </div>
+
+                    <strong>
+                        &#8377;<%= money(menu.getPrice() * quantity) %>
+                    </strong>
+                </div>
+            <% } %>
+        </section>
+    </div>
+
+    <aside class="card bill">
+        <div class="bill-header">
+            <div class="eyebrow">Payment summary</div>
+            <h2>Bill details</h2>
+        </div>
+
+        <div class="bill-body">
+            <div class="row">
+                <span>Item total</span>
+                <strong>&#8377;<%= money(subtotal) %></strong>
+            </div>
+
+            <div class="row">
+                <span>Delivery fee</span>
+                <strong>&#8377;<%= money(deliveryFee) %></strong>
+            </div>
+
+            <div class="row">
+                <span>Platform fee</span>
+                <strong>&#8377;<%= money(platformFee) %></strong>
+            </div>
+
+            <div class="row total">
+                <span>To Pay</span>
+                <strong>&#8377;<%= money(totalAmount) %></strong>
+            </div>
+
+            <button id="place-order-button"
+                    class="button primary"
+                    type="submit">
+                Place Order · &#8377;<%= money(totalAmount) %>
+            </button>
+
+            <p id="payment-status"
+               class="status"
+               role="status"
+               aria-live="polite"></p>
+
+            <button id="check-payment-button"
+                    class="button secondary"
+                    type="button"
+                    hidden>
+                Check Payment Status
+            </button>
+
+            <p class="test-note">
+                Use Razorpay test payment options while your
+                account is in Test Mode.
+            </p>
+
+            <a class="button secondary"
+               href="<%= escapeHtml(contextPath + "/cart") %>">
+                &#8592; Return to cart
+            </a>
+        </div>
+    </aside>
 </form>
 
-</body>
+<div id="checkout-config"
+     hidden
+     data-context="<%= escapeHtml(contextPath) %>">
+</div>
 
+<form id="verify-payment-form"
+      action="<%= escapeHtml(contextPath + "/verify-payment") %>"
+      method="post"
+      hidden>
+    <input name="orderId">
+    <input name="csrfToken">
+    <input name="razorpay_payment_id">
+    <input name="razorpay_order_id">
+    <input name="razorpay_signature">
+</form>
+
+<form id="check-payment-form"
+      action="<%= escapeHtml(contextPath + "/check-payment-status") %>"
+      method="post"
+      hidden>
+    <input name="orderId">
+    <input name="csrfToken">
+</form>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+(function () {
+    "use strict";
+
+    const context =
+        document.getElementById("checkout-config").dataset.context;
+
+    const form = document.getElementById("checkout-form");
+    const online = document.getElementById("online-payment");
+    const button = document.getElementById("place-order-button");
+    const status = document.getElementById("payment-status");
+    const checkButton = document.getElementById("check-payment-button");
+    const verifyForm = document.getElementById("verify-payment-form");
+    const checkForm = document.getElementById("check-payment-form");
+    const originalButtonText = button.textContent.trim();
+
+    let busy = false;
+    let reviewRequired = false;
+    let paymentOrder = null;
+
+    function setBusy(value) {
+        busy = value;
+        button.disabled = value || reviewRequired;
+
+        form.querySelectorAll('input[name="paymentMode"]')
+            .forEach(function (input) {
+                input.disabled = value || reviewRequired;
+            });
+    }
+
+    function showReview(message) {
+        reviewRequired = true;
+        status.textContent = message;
+        checkButton.hidden = !paymentOrder;
+        setBusy(false);
+        button.textContent = "Check payment status";
+    }
+
+    function rememberReview(orderId) {
+        try {
+            sessionStorage.setItem(
+                "cravego-payment-review-" + orderId,
+                "true"
+            );
+        } catch (error) {
+            // Server verification remains authoritative.
+        }
+    }
+
+    function reviewRemembered(orderId) {
+        try {
+            return sessionStorage.getItem(
+                "cravego-payment-review-" + orderId
+            ) === "true";
+        } catch (error) {
+            return false;
+        }
+    }
+
+    async function postJson(path, body) {
+        const response = await fetch(context + path, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Accept": "application/json"
+            },
+            body: body
+        });
+
+        const contentType =
+            response.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+            throw new Error(
+                "The server did not return payment details. "
+                + "Refresh checkout or check My Orders."
+            );
+        }
+
+        const result = await response.json();
+
+        if (!response.ok || result.error) {
+            throw new Error(
+                result.error || "Unable to prepare payment."
+            );
+        }
+
+        return result;
+    }
+
+    function submitVerification(result) {
+        if (reviewRequired) {
+            return;
+        }
+
+        rememberReview(paymentOrder.orderId);
+        reviewRequired = true;
+        setBusy(true);
+        status.textContent = "Verifying your payment...";
+
+        if (!result.razorpay_payment_id
+                || !result.razorpay_order_id
+                || !result.razorpay_signature) {
+
+            showReview(
+                "Payment response is incomplete. "
+                + "Check Payment Status before trying again."
+            );
+            return;
+        }
+
+        verifyForm.elements.namedItem("orderId").value =
+            paymentOrder.orderId;
+
+        verifyForm.elements.namedItem("csrfToken").value =
+            paymentOrder.csrfToken;
+
+        verifyForm.elements.namedItem("razorpay_payment_id").value =
+            result.razorpay_payment_id;
+
+        verifyForm.elements.namedItem("razorpay_order_id").value =
+            result.razorpay_order_id;
+
+        verifyForm.elements.namedItem("razorpay_signature").value =
+            result.razorpay_signature;
+
+        verifyForm.submit();
+    }
+
+    async function startOnlinePayment() {
+        if (busy || reviewRequired) {
+            return;
+        }
+
+        if (typeof window.Razorpay !== "function") {
+            status.textContent =
+                "Payment checkout could not load. Refresh and try again.";
+            return;
+        }
+
+        // Read the selected radio before disabling the controls.
+        const checkoutBody = new URLSearchParams(
+    new FormData(form)
+);
+        checkoutBody.set("paymentMode", "RAZORPAY");
+        checkoutBody.set("inlinePayment", "true");
+
+        setBusy(true);
+        button.textContent = "Preparing payment...";
+        status.textContent = "Saving your order...";
+
+        try {
+            const order = await postJson("/checkout", checkoutBody);
+
+            if (order.paid) {
+                window.location.assign(order.redirectUrl);
+                return;
+            }
+
+            paymentOrder = order;
+            checkButton.hidden = false;
+
+            if (reviewRemembered(order.orderId)) {
+                showReview(
+                    "A payment response was already received. "
+                    + "Check Payment Status before trying again."
+                );
+                return;
+            }
+
+            const prepareBody = new URLSearchParams();
+
+            prepareBody.set("orderId", String(order.orderId));
+            prepareBody.set("csrfToken", order.csrfToken);
+            prepareBody.set("inlinePayment", "true");
+
+            const config = await postJson("/payment", prepareBody);
+
+            if (config.paid) {
+                window.location.assign(config.redirectUrl);
+                return;
+            }
+
+            paymentOrder = config;
+
+            if (!config.key
+                    || !config.gatewayOrderId
+                    || !Number.isSafeInteger(config.amount)
+                    || config.amount <= 0) {
+
+                throw new Error("Payment configuration is incomplete.");
+            }
+
+            const checkout = new window.Razorpay({
+                key: config.key,
+                amount: config.amount,
+                currency: config.currency,
+                name: "CraveGo",
+                description: "Food order payment",
+                order_id: config.gatewayOrderId,
+                prefill: config.prefill,
+                theme: {
+                    color: "#ff6647"
+                },
+                handler: submitVerification,
+                modal: {
+                    ondismiss: function () {
+                        if (!reviewRequired) {
+                            setBusy(false);
+                            button.textContent = "Continue Online Payment";
+                            status.textContent =
+                                "Checkout closed. Your order is saved. "
+                                + "If you completed payment, check its status.";
+                        }
+                    }
+                }
+            });
+
+            checkout.on("payment.failed", function () {
+                if (!reviewRequired) {
+                    status.textContent =
+                        "This attempt failed. You can retry inside checkout.";
+                }
+            });
+
+            status.textContent = "Choose your payment method.";
+            button.textContent = "Payment checkout open";
+            checkout.open();
+
+        } catch (error) {
+            setBusy(false);
+            button.textContent = "Continue Online Payment";
+            status.textContent =
+                error.message || "Unable to open payment checkout.";
+        }
+    }
+
+    online.addEventListener("change", function () {
+        if (online.checked) {
+            startOnlinePayment();
+        }
+    });
+
+    form.querySelectorAll('input[name="paymentMode"]')
+        .forEach(function (input) {
+            input.addEventListener("change", function () {
+                if (!online.checked && !busy && !reviewRequired) {
+                    button.textContent = originalButtonText;
+                }
+            });
+        });
+
+    form.addEventListener("submit", function (event) {
+        if (busy || reviewRequired) {
+            event.preventDefault();
+            return;
+        }
+
+        if (online.checked) {
+            event.preventDefault();
+            startOnlinePayment();
+            return;
+        }
+
+        // Allow the normal COD form submission.
+        busy = true;
+        button.disabled = true;
+        button.textContent = "Placing your order...";
+    });
+
+    checkButton.addEventListener("click", function () {
+        if (!paymentOrder || busy) {
+            return;
+        }
+
+        checkForm.elements.namedItem("orderId").value =
+            paymentOrder.orderId;
+
+        checkForm.elements.namedItem("csrfToken").value =
+            paymentOrder.csrfToken;
+
+        checkButton.disabled = true;
+        checkButton.textContent = "Checking payment...";
+        checkForm.submit();
+    });
+})();
+</script>
+
+</body>
 </html>
